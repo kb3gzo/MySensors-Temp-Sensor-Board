@@ -61,29 +61,24 @@ unsigned long SLEEP_TIME = 30000; // Sleep time between reads (in milliseconds)
 #define HUMIDITY_SENSOR_DIGITAL_PIN 3
 
 #ifdef DALLAS_SENSOR
-#define COMPARE_TEMP 1 // Send temperature only if changed? 1 = Yes 0 = No
-#define ONE_WIRE_BUS 3 // Pin where dallase sensor is connected 
-#define MAX_ATTACHED_DS18B20 16
-OneWire oneWire(ONE_WIRE_BUS); // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
-DallasTemperature sensors(&oneWire); // Pass the oneWire reference to Dallas Temperature. 
-
+ #define COMPARE_TEMP 1 // Send temperature only if changed? 1 = Yes 0 = No
+ #define ONE_WIRE_BUS 3 // Pin where dallase sensor is connected 
+ #define MAX_ATTACHED_DS18B20 16
+ OneWire oneWire(ONE_WIRE_BUS); // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
+ DallasTemperature sensors(&oneWire); // Pass the oneWire reference to Dallas Temperature. 
 #endif
 
 #ifdef MOTION_SENSOR
-#define DIGITAL_INPUT_SENSOR 3   // The digital input you attached your motion sensor.  (Only 2 and 3 generates interrupt!)
-#define INTERRUPT DIGITAL_INPUT_SENSOR-2 // Usually the interrupt = pin -2 (on uno/nano anyway)
-#define CHILD_ID 3   // Id of the sensor child
+ #define DIGITAL_INPUT_SENSOR 3   // The digital input you attached your motion sensor.  (Only 2 and 3 generates interrupt!)
+ #define INTERRUPT DIGITAL_INPUT_SENSOR-2 // Usually the interrupt = pin -2 (on uno/nano anyway)
+ #define CHILD_ID 3   // Id of the sensor child
 #endif
-
 
 // How many milli seconds between each measurement
 #define MEASURE_INTERVAL 60000
 
 // FORCE_TRANSMIT_INTERVAL, this number of times of wakeup, the sensor is forced to report all values to the controller
 #define FORCE_TRANSMIT_INTERVAL 30 
-
-// When MEASURE_INTERVAL is 60000 and FORCE_TRANSMIT_INTERVAL is 30, we force a transmission every 30 minutes.
-// Between the forced transmissions a tranmission will only occur if the measured value differs from the previous measurement
 
 // HUMI_TRANSMIT_THRESHOLD tells how much the humidity should have changed since last time it was transmitted. Likewise with
 // TEMP_TRANSMIT_THRESHOLD for temperature threshold.
@@ -92,7 +87,6 @@ DallasTemperature sensors(&oneWire); // Pass the oneWire reference to Dallas Tem
 
 SPIFlash flash(8, 0x1F65);
 
-
 MySensor gw;
 
 // Sensor messages
@@ -100,18 +94,18 @@ MyMessage msgHum(CHILD_ID_HUM, V_HUM);
 MyMessage msgTemp(CHILD_ID_TEMP, V_TEMP);
 
 #ifdef BATT_SENSOR
-MyMessage msgBatt(BATT_SENSOR, V_VOLTAGE);
+ MyMessage msgBatt(BATT_SENSOR, V_VOLTAGE);
 #endif
 
 #ifdef DALLAS_SENSOR
-float lastTemperature[MAX_ATTACHED_DS18B20];
-int numSensors=0;
-boolean receivedConfig = false;
-MyMessage msg(0,V_TEMP);
+ float lastTemperature[MAX_ATTACHED_DS18B20];
+ int numSensors=0;
+ boolean receivedConfig = false;
+ MyMessage msg(0,V_TEMP);
 #endif
 
 #ifdef MOTION_SENSOR
-MyMessage msg(CHILD_ID, V_TRIPPED);
+ MyMessage msg(CHILD_ID, V_TRIPPED);
 #endif
 
 // Global settings
@@ -128,7 +122,9 @@ long lastBattery = -100;
 RunningAverage raHum(AVERAGES);
 
 //Start DHT sensor
-DHT dht;
+#ifdef
+ DHT dht;
+#endif
 
 /****************************************************
  *
@@ -137,17 +133,22 @@ DHT dht;
  ****************************************************/
 void setup()  
 { 
-  gw.begin();
+  gw.begin(NULL,AUTO,false);
+
+  metric = gw.getConfig().isMetric;
+
   dht.setup(HUMIDITY_SENSOR_DIGITAL_PIN); 
 
-  // Send the Sketch Version Information to the Gateway
-  gw.sendSketchInfo("SensorBoard", "1.0");
+   gw.sendSketchInfo("SensorBoard", "1.0");  // Send the Sketch Version Information to the Gateway
 
-  pinMode(DIGITAL_INPUT_SENSOR, INPUT);      // sets the motion sensor digital pin as input
-
-  // Register all sensors to gw (they will be created as child devices)
-  gw.present(CHILD_ID_HUM, S_HUM);
-  gw.present(CHILD_ID_TEMP, S_TEMP);
+  #ifdef MOTION_SENSOR
+   pinMode(DIGITAL_INPUT_SENSOR, INPUT);      // sets the motion sensor digital pin as input
+  #endif
+  
+  #ifdef DHT_SENSOR
+   gw.present(CHILD_ID_HUM, S_HUM);
+   gw.present(CHILD_ID_TEMP, S_TEMP);
+  #endif
 
 #ifdef DALLAS_SENSOR
   sensors.begin();      // Startup up the OneWire library
@@ -167,14 +168,12 @@ void setup()
  #ifdef MOTION_SENSOR
   gw.present(CHILD_ID, S_MOTION);
 #endif
- 
-  metric = gw.getConfig().isMetric;
 }
 
 void loop()      
 {  
 
-   measureCount ++;
+  measureCount ++;
   sendBattery ++;
   bool forceTransmit = false;
   
@@ -196,7 +195,7 @@ void loop()
   #endif
   
   #ifdef DALLAS_SENSOR
-  sendDallasTemp
+  sendDallasTemp();
   #endif
   
   if (sendBattery > 60) 
@@ -205,14 +204,13 @@ void loop()
      sendBattery = 0;
   }
 
-  // Sleep until interrupt comes in on motion sensor. Send update every two minute. 
-  gw.sleep(INTERRUPT,CHANGE, SLEEP_TIME);
+    gw.sleep(INTERRUPT,CHANGE, SLEEP_TIME);  // Sleep until interrupt comes in on motion sensor. Send update every two minute. 
 //  gw.sleep(SLEEP_TIME); //sleep a bit
 }
 }
 
 
-void sendDallasTemp
+void sendDallasTemp()
 {
 #ifdef DALLAS_SENSOR
   sensors.requestTemperatures();      // Fetch temperatures from Dallas sensors
